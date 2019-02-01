@@ -20,7 +20,7 @@ class Env:
         self.enemy_move(_x, _y)
 
         if self.check_win() or self.check_lose():
-            return self.dell()
+            return self.update_env()
 
     def enemy_move(self, x: int, y: int):
         self.count_enemy[y, x] = 1
@@ -35,6 +35,8 @@ class Env:
             elif np.sum(self.count[:, i]) == 3:
                 print("YOU WIN")
                 return True
+            else:
+                return False
 
         if np.sum([self.count[0, 0],
                    self.count[1, 1],
@@ -46,6 +48,8 @@ class Env:
                      self.count[2, 0]]) == 3:
             print("YOU WIN")
             return True
+        else:
+            return False
 
     def check_lose(self):
         for i in range(self.count_enemy.shape[0]):
@@ -55,6 +59,8 @@ class Env:
             elif np.sum(self.count_enemy[:, i]) == 3:
                 print("YOU LOSE")
                 return True
+            else:
+                return False
 
         if np.sum([self.count_enemy[0, 0],
                    self.count_enemy[1, 1],
@@ -66,8 +72,10 @@ class Env:
                      self.count_enemy[2, 0]]) == 3:
             print("YOU LOSE")
             return True
+        else:
+            return False
 
-    def dell(self):
+    def update_env(self):
         self.env = np.zeros((3, 3), dtype=int)
         self.count = np.zeros((3, 3), dtype=int)
         self.count_enemy = np.zeros((3, 3), dtype=int)
