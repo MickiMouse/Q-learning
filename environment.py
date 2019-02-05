@@ -1,82 +1,101 @@
-import numpy as np
+import random
 
 
 class Env:
-    def __init__(self):
-        self.env = np.zeros((3, 3), dtype=int)
-        self.count = np.zeros((3, 3), dtype=int)
-        self.count_enemy = np.zeros((3, 3), dtype=int)
-        print("Environment", "\n", self.env)
 
-    def move(self, x: int, y: int):
-        if self.count[y, x] == 0 and self.count_enemy[y, x] == 0:
-            self.count[y, x] = 1
-            self.env[y, x] = 10
+    def __init__(self, player1=None, player2=None):
+        self.player1 = player1
+        self.player2 = player2
+        self.board = [' '] * 9
+        self.possible_moves = []
+
+    def move(self, i: int, view: str):
+
+        if self.board[i] == ' ':
+            self.board[i] = view
+
         else:
-            raise IndexError("Here is busy")
-        print("My move", "\n", self.env)
+            raise IndexError("HERE IS BUSY")
 
-        _y, _x = np.unravel_index(self.env.argmin(), self.count.shape)
-        self.enemy_move(_x, _y)
+        self.get_possible_moves()
 
-        if self.check_win() or self.check_lose():
-            return self.update_env()
+        return self.board
 
-    def enemy_move(self, x: int, y: int):
-        self.count_enemy[y, x] = 1
-        self.env[y, x] = 20
-        print("Enemy move", "\n", self.env)
+    def check_win(self, count, view: str):
+        check = [
+            [count[i] for i in (0, 1, 2)],
+            [count[i] for i in (3, 4, 5)],
+            [count[i] for i in (6, 7, 8)],
+            [count[i] for i in (0, 3, 6)],
+            [count[i] for i in (1, 4, 7)],
+            [count[i] for i in (2, 5, 8)],
+            [count[i] for i in (0, 4, 8)],
+            [count[i] for i in (2, 4, 6)],
+        ]
 
-    def check_win(self):
-        for i in range(self.count.shape[0]):
-            if np.sum(self.count[i, :]) == 3:
-                print("YOU WIN")
-                return True
-            elif np.sum(self.count[:, i]) == 3:
-                print("YOU WIN")
-                return True
-            else:
-                return False
+        for arr in check:
+            if arr.count(view) == 3:
+                return 1.0, True, view
 
-        if np.sum([self.count[0, 0],
-                   self.count[1, 1],
-                   self.count[2, 2]]) == 3:
-            print("YOU WIN")
-            return True
-        elif np.sum([self.count[0, 2],
-                     self.count[1, 1],
-                     self.count[2, 0]]) == 3:
-            print("YOU WIN")
-            return True
-        else:
-            return False
+        if not any(i == ' ' for i in self.board):
+            return 0.5, True, view
 
-    def check_lose(self):
-        for i in range(self.count_enemy.shape[0]):
-            if np.sum(self.count_enemy[i, :]) == 3:
-                print("YOU LOSE")
-                return True
-            elif np.sum(self.count_enemy[:, i]) == 3:
-                print("YOU LOSE")
-                return True
-            else:
-                return False
+        return 0.0, False, view
 
-        if np.sum([self.count_enemy[0, 0],
-                   self.count_enemy[1, 1],
-                   self.count_enemy[2, 2]]) == 3:
-            print("YOU LOSE")
-            return True
-        elif np.sum([self.count_enemy[0, 2],
-                     self.count_enemy[1, 1],
-                     self.count_enemy[2, 0]]) == 3:
-            print("YOU LOSE")
-            return True
-        else:
-            return False
+    def train(self, epoch):
+        for i in range(epoch):
+            self.restart_game()
 
-    def update_env(self):
-        self.env = np.zeros((3, 3), dtype=int)
-        self.count = np.zeros((3, 3), dtype=int)
-        self.count_enemy = np.zeros((3, 3), dtype=int)
-        print("Environment", "\n", self.env)
+            x = random.choice([True, False])
+            done = False
+
+            while not done:
+                if x:
+                    view = 'X'
+                    motion = self.player1.action(self.board, self.get_possible_moves())
+                else:
+                    view = 'O'
+                    motion = self.player2.action(self.board, self.get_possible_moves())
+
+                self.move(motion, view)
+
+                reward, done, kind = self.check_win(self.board, view)
+
+                if reward == 1.0:
+
+                    if kind == 'X':
+                        self.player1.update_q(reward, tuple(self.board), self.possible_moves)
+                        self.player2.update_q(-1 * reward, tuple(self.board), self.possible_moves)
+                    else:
+                        self.player1.update_q(-1 * reward, tuple(self.board), self.possible_moves)
+                        self.player2.update_q(reward, tuple(self.board), self.possible_moves)
+
+                elif reward == -1.0:
+
+                    if kind == 'X':
+                        self.player1.update_q(-1 * reward, tuple(self.board), self.possible_moves)
+                        self.player2.update_q(reward, tuple(self.board), self.possible_moves)
+                    else:
+                        self.player1.update_q(reward, tuple(self.board), self.possible_moves)
+                        self.player2.update_q(-1 * reward, tuple(self.board), self.possible_moves)
+
+                elif reward == 0.5:
+
+                    self.player1.update_q(reward, tuple(self.board), self.possible_moves)
+                    self.player2.update_q(reward, tuple(self.board), self.possible_moves)
+
+                elif reward == 0.0:
+
+                    self.player1.update_q(reward, tuple(self.board), self.possible_moves)
+                    self.player2.update_q(reward, tuple(self.board), self.possible_moves)
+
+                x = not x
+
+    def get_possible_moves(self):
+        # all possible moves
+        self.possible_moves.clear()
+        self.possible_moves = [x for x in range(len(self.board)) if self.board[x] == ' ']
+        return self.possible_moves
+
+    def restart_game(self):
+        self.board = [' '] * 9
